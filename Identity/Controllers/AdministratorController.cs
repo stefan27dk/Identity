@@ -23,7 +23,7 @@ namespace Identity.Controllers
         // Managers
         private readonly RoleManager<IdentityRole> roleManager; // RoleManager
         private readonly UserManager<ApplicationUser> userManager; // User Manager
-        private readonly IdentityContext identityDBContext; // Db Context
+        private readonly IdentityContext _identityDBContext; // Db Context
 
 
 
@@ -35,7 +35,7 @@ namespace Identity.Controllers
         {
             this.roleManager = roleManager;
             this.userManager = userManager;
-            this.identityDBContext = identityDBContext;
+            _identityDBContext = identityDBContext;
         }
 
 
@@ -139,65 +139,40 @@ namespace Identity.Controllers
 
 
 
-        // ===== Remove Role - || Post || =====================================================================
+        // ===== Remove Role And Reassign- || Post || =====================================================================
         [HttpPost]
-        [Route("RemoveRole")]
-        public async Task<IActionResult> RemoveRole(string roleName, string reAssignRole)
+        [Route("RemoveRoleAndReassign")]
+        public async Task<IActionResult> RemoveRoleAndReassign(string roleName, string reAssignRole)
         {
-            if (roleName != null) // If not emopty input
+            if (!string.IsNullOrWhiteSpace(roleName) && !string.IsNullOrWhiteSpace(reAssignRole)) // If not emopty input
             {
                 var role = await roleManager.FindByNameAsync(roleName); // Find the role
-                if (role != null)
+                if (role != null) // If Role exists
                 {
-                    var roleToDelete = await roleManager.FindByNameAsync(roleName); // Get the role
                     var usersInRole = await userManager.GetUsersInRoleAsync(roleName); // Get List of user in the Role
 
                     // Reassign Users to another role----------------------------------------------------------
-                    if (usersInRole != null && reAssignRole != null) // If there are users in the role and added role for reassigning the users
-                    {
                         var roleToReAssign = await roleManager.FindByNameAsync(reAssignRole); // Get the role for reassigning
                         if (roleToReAssign != null) // If reassigning role exists
                         {
                             List<ApplicationUser> rollbackList = new List<ApplicationUser>(); // Rollback list if erors
                             IdentityResult changeRoleResult;
 
-
                             for (int i = 0; i < usersInRole.Count; i++) // Loop and reassign users
                             {
                                 changeRoleResult = await userManager.AddToRoleAsync(usersInRole[i], reAssignRole);
-
-                                //if(changeRoleResult.Succeeded)
-                                //{
-                                //  rollbackList.Add(usersInRole[i]);
-                                //}
-
-
-                                //else // If cant reassign users
-                                //{
-
-                                //    if(rollbackList.Count != 0)  // If list not empty Rollback
-                                //    {
-                                //       for (int k = 0; k < rollbackList.Count; k++)
-                                //       {
-                                //         await userManager.AddToRoleAsync(rollbackList[k], roleName);  // Rollback
-                                //       }
-                                //    }
-                                //    return StatusCode(500, "[\n \"Fatal error: could not reassign one or more of the users - Please try again\" \n]"); // If list empty return just message
-                                //}
-
                             }
                         }
                         else
                         {
                             return StatusCode(404, $"[\n \"The Role: \"{reAssignRole}\" for reassigning the users cant be found\" \n]");
                         }
-                    }
-
+                    
 
 
 
                     // Delete the Role-----------------------------------------------------------------------
-                    var result = await roleManager.DeleteAsync(roleToDelete); // Delete Role
+                    var result = await roleManager.DeleteAsync(role); // Delete Role
                     if (result.Succeeded) // If Ok
                     {
                         return StatusCode(200, $"[\n \"Role: \"{roleName} \" was Successfully Deleted\" \n]");  // Role Deleted msg
@@ -205,6 +180,42 @@ namespace Identity.Controllers
                     return StatusCode(500, result.Errors.Select(e => e.Description)); // Delete Errors
 
                 }
+                return StatusCode(401, "[\n \"Role not found\" \n]"); // Role not found msg
+            }
+            return StatusCode(409, "[\n \"Empty input: Rolename & ReAssignRole cant be empty\" \n]");
+
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        // ===== Remove Role - || Post || =====================================================================
+        [HttpPost]
+        [Route("RemoveRole")]
+        public async Task<IActionResult> RemoveRole(string roleName)
+        {
+            if (!string.IsNullOrWhiteSpace(roleName)) // If not emopty input
+            {
+                var role = await roleManager.FindByNameAsync(roleName); // Find the role
+                if (role != null)
+                {
+                    var result = await roleManager.DeleteAsync(role); // Delete Role
+                    if (result.Succeeded) // If Ok
+                    {
+                        return StatusCode(200, $"[\n \"Role: \"{roleName} \" was Successfully Deleted\" \n]");  // Role Deleted msg
+                    }
+                    return StatusCode(500, result.Errors.Select(e => e.Description)); // Delete Errors
+                } 
                 return StatusCode(401, "[\n \"Role not found\" \n]"); // Role not found msg
             }
             return StatusCode(409, "[\n \"Empty input: Rolename cant be empty\" \n]");
@@ -229,8 +240,7 @@ namespace Identity.Controllers
         [Route("RemoveUserFromRole")]
         public async Task<IActionResult> RemoveRoleFromUser(string email, string roleName)
         {
-
-            if (email != null && roleName != null) // If Input not empty
+            if (!string.IsNullOrWhiteSpace(email) && !string.IsNullOrWhiteSpace(roleName)) // If Input not empty
             {
                 var user = await userManager.FindByEmailAsync(email);  // Get User
                 if (user != null) // If user found
@@ -269,7 +279,7 @@ namespace Identity.Controllers
         [Route("AddUserToRole")]
         public async Task<IActionResult> EditUserInRole(string userEmail, string roleName)
         {
-            if (userEmail != null && roleName != null)  // If Input not empty
+            if (!string.IsNullOrWhiteSpace(userEmail) && !string.IsNullOrWhiteSpace(roleName))  // If Input not empty
             {
                 var user = await userManager.FindByEmailAsync(userEmail); // Find user
                 if (user != null)
@@ -341,7 +351,7 @@ namespace Identity.Controllers
         [Route("GetUser")]
         public async Task<IActionResult> GetUser(string email)
         {
-            if (email != null)
+            if (!string.IsNullOrWhiteSpace(email))
             {
                 var user = await userManager.FindByEmailAsync(email);
                 if (user != null)
@@ -373,7 +383,7 @@ namespace Identity.Controllers
             {
                 return await Task.Run(() =>
                 {
-                    var users = identityDBContext.UserRoles;
+                    var users = _identityDBContext.UserRoles;
                     return StatusCode(200, users); // Get all users
                 });
             }
@@ -395,7 +405,7 @@ namespace Identity.Controllers
         [Route("DeleteUser")]
         public async Task<IActionResult> DeleteUser(string email)
         {
-            if (email != null)
+            if (!string.IsNullOrWhiteSpace(email))
             {
                 // Get User by Email
                 var user = await userManager.FindByEmailAsync(email);

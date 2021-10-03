@@ -42,25 +42,26 @@ namespace Identity.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> Register(string firstname, string lastname, string email, string age, string phonenumber, string password, bool rememberMe)
         {
-            //var user = new ApplicationUser { UserName = email, Email = email };  // Create the User
-            var user = new ApplicationUser(); // Create the User
-            var setResult = user.SetUserData(firstname, lastname, email, age, phonenumber, password); ;
-
-            if (setResult.Succeeded) // If all validated
-            {
-                if (email != null && password != null)
+            if(!string.IsNullOrWhiteSpace(email) && password != null)
+            {    
+                //var user = new ApplicationUser { UserName = email, Email = email };  // Create the User
+                var user = new ApplicationUser(); // Create the User
+                var setResult = user.SetUserData(firstname, lastname, email, age, phonenumber, password); 
+                
+                if (setResult.Succeeded) // If all validated
                 {
-                    var result = await userManager.CreateAsync(user); // Save the  User
-                    if (result.Succeeded)  // If All Ok
-                    {
-                        await signInManager.SignInAsync(user, isPersistent: rememberMe);  // Sign In the User "Session with persistent cookie"
-                        return StatusCode(201, "[\n \"Registration Successfull\" \n]");
-                    }
-                    return StatusCode(409, result.Errors.Select(e => e.Description));  // Create User - Errors
+                        var result = await userManager.CreateAsync(user); // Save the  User
+                        if (result.Succeeded)  // If All Ok
+                        {
+                            await signInManager.SignInAsync(user, isPersistent: rememberMe);  // Sign In the User "Session with persistent cookie"
+                            return StatusCode(201, "[\n \"Registration Successfull\" \n]");
+                        }
+                        return StatusCode(409, result.Errors.Select(e => e.Description));  // Create User - Errors
                 }
-                return StatusCode(409, "[\n \"Email or Password is empty\" \n]"); // Registration Errors
+                return StatusCode(409, setResult.Errors.Select(e => e.Description));  // Validation Errors
             }
-            return StatusCode(409, setResult.Errors.Select(e => e.Description));  // Validation Errors
+            return StatusCode(400, "Email or/and password cant be empty!");  // Validation Errors
+
         }
 
 
@@ -78,7 +79,7 @@ namespace Identity.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> LogIn(string email, string password, bool rememberMe)
         {
-            if (email != null && password != null)
+            if (!string.IsNullOrWhiteSpace(email) && password != null)
             {
                 var result = await signInManager.PasswordSignInAsync(email, password, rememberMe, false);
                 if (result.Succeeded) // If Login Ok
@@ -112,6 +113,36 @@ namespace Identity.Controllers
 
 
 
+        //// Get User  ==================================================================================
+        //[HttpGet]
+        //[Route("GetUserData")]
+        ////[AllowAnonymous]
+        //public async Task<IActionResult> GetUserData()
+        //{
+        //    // Get Current User
+        //    var user = await userManager.GetUserAsync(HttpContext.User); // Get User
+        //    GetUserDataViewModel userData = new GetUserDataViewModel();  // View Mdoel
+
+        //    if (user != null) // If Logged in
+        //    {
+        //        userData.Email = user.Email;
+        //        userData.Firstname = user.FirstName;
+        //        userData.Lastname = user.LastName;
+        //        userData.Age = user.Age;
+        //        userData.Phonenumber = user.PhoneNumber;
+
+        //        return new JsonResult(userData); // Return User Data
+        //    }
+        //    return new JsonResult(userData); // Empty User Data
+        //}
+
+
+
+
+
+
+
+
         // Get User  ==================================================================================
         [HttpGet]
         [Route("GetUserData")]
@@ -120,21 +151,21 @@ namespace Identity.Controllers
         {
             // Get Current User
             var user = await userManager.GetUserAsync(HttpContext.User); // Get User
-            GetUserDataViewModel userData = new GetUserDataViewModel();  // View Mdoel
-
+                
             if (user != null) // If Logged in
             {
-                userData.Email = user.Email;
-                userData.Firstname = user.FirstName;
-                userData.Lastname = user.LastName;
-                userData.Age = user.Age;
-                userData.Phonenumber = user.PhoneNumber;
-
+                object userData = new
+                {
+                    Email = user.Email,
+                    Firstname = user.FirstName,
+                    Lastname = user.LastName,
+                    Age = user.Age,
+                    Phonenumber = user.PhoneNumber
+                };
                 return new JsonResult(userData); // Return User Data
             }
-            return new JsonResult(userData); // Empty User Data
+            return StatusCode(403, "Not Logged In"); // Empty User Data
         }
-
 
 
 
@@ -154,19 +185,14 @@ namespace Identity.Controllers
 
 
             if (user != null) // If User logged in
-            {
-                userEmail.Email = user.Email.ToString();
-                return new JsonResult(userEmail);
+            {   
+                return StatusCode(200, user.Email.ToString());
             }
-            return new JsonResult(userEmail); // Return empty string "userEmail.Email is empty string as default"
+            return StatusCode(403, "[\n Not Logged In \n]");
         }
 
-
-
-
-
-
-
+            
+           
 
 
 
@@ -322,28 +348,32 @@ namespace Identity.Controllers
         [Route("DeleteLogIn")]
         public async Task<IActionResult> DeleteLogIn(string email)
         {
-            // Get Current User
-            var user = await userManager.GetUserAsync(HttpContext.User);
-
-            if (user.Email == email)
+            if (!string.IsNullOrWhiteSpace(email))
             {
-                // Delete the User
-                var result = await userManager.DeleteAsync(user);
-
-
-                if (result.Succeeded)// If Success
-                {
-                    return StatusCode(200, "[\n \"User Deleted Successfully\" \n]");
-                }
-                else// If Error
-                {
-                    return new JsonResult(result.Errors.Select(e => e.Description));
-                }
+                 // Get Current User
+                 var user = await userManager.GetUserAsync(HttpContext.User);
+                 
+                 if (user.Email == email)
+                 {
+                     // Delete the User
+                     var result = await userManager.DeleteAsync(user);
+                 
+                 
+                     if (result.Succeeded)// If Success
+                     {
+                         return StatusCode(200, "[\n \"User Deleted Successfully\" \n]");
+                     }
+                     else// If Error
+                     {
+                         return new JsonResult(result.Errors.Select(e => e.Description));
+                     }
+                 }
+                 else// If email not same as the users email
+                 {
+                     return StatusCode(422, "[\n \"The Email is not correct - Please enter your account email to confirm deletion of the account\" \n]");
+                 }
             }
-            else// If email not same as the users email
-            {
-                return StatusCode(422, "[\n \"Please enter your email to confirm deletion of the account\" \n]");
-            }
+            return StatusCode(403, "[\n \"Email cant be Empty\" \n]");
         }
 
 

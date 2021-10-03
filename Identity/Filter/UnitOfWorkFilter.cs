@@ -12,15 +12,15 @@ namespace Identity.Filter
     public class UnitOfWorkFilter : IActionFilter
     {
         // Db Context
-        private readonly IdentityContext _dbContext;
+        private readonly IdentityContext _identityDBContext;
         private IDbContextTransaction _transaction; //Transaction
 
 
 
         // || Constructor || =========================================================================
-        public UnitOfWorkFilter(IdentityContext _dbContext)
+        public UnitOfWorkFilter(IdentityContext identityDBContext)
         {
-            this._dbContext = _dbContext;
+            _identityDBContext = identityDBContext;
         }
 
 
@@ -38,10 +38,10 @@ namespace Identity.Filter
 
             if (context.HttpContext.Request.Method == "GET") // IF GET
             {
-                _dbContext.ChangeTracker.AutoDetectChangesEnabled = false; // No Ef-Core Tracking on Get
+                _identityDBContext.ChangeTracker.AutoDetectChangesEnabled = false; // No Ef-Core Tracking on Get
                 return;
             }
-            _transaction = _dbContext.Database.BeginTransaction(); // Begin Transaction
+            _transaction = _identityDBContext.Database.BeginTransaction(); // Begin Transaction
         }
 
 
@@ -65,7 +65,7 @@ namespace Identity.Filter
 
             if (context.Exception == null) // If No DbContext Exception
             {
-                _dbContext.SaveChangesAsync().Wait(new TimeSpan(0, 0, 10)); // Save and wait max 10 sec for save to complete
+                _identityDBContext.SaveChangesAsync().Wait(new TimeSpan(0, 0, 10)); // Save and wait max 10 sec for save to complete
                 _transaction.CommitAsync().Wait(new TimeSpan(0, 0, 10)); // Commit
                 _transaction.Dispose();
             }
